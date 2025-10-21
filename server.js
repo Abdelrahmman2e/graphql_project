@@ -6,19 +6,53 @@ const morgan = require("morgan");
 
 const dbConnection = require("./config/dbConnection");
 require("dotenv").config({ path: "./config.env" });
+const User = require("./models/userModel");
 
 dbConnection();
 
 const schema = buildSchema(`
+  type User{
+  name:String!,
+  email:String!,
+  }
+
+  input userInput{
+  name:String!,
+  email:String!,
+  password:String!
+  }
+
   type Query{
   test:String
-  }`);
+  getUsers:[User]
+  }
+
+
+
+  type Mutation{
+  createUser(input:userInput):User
+  }
+
+  `);
 
 const userQueries = {
   test: () => "Success",
+  getUsers: async () => {
+    const users = await User.find();
+    return users;
+  },
 };
 
-const userMutations = {};
+const userMutations = {
+  createUser: async ({ input }) => {
+    const { name, email, password } = input;
+    const newUser = await User.create({ name, email, password });
+    return {
+      name,
+      email,
+    };
+  },
+};
 
 const resolvers = {
   ...userQueries,
@@ -27,7 +61,7 @@ const resolvers = {
 
 const app = express();
 
-if (process.env.NODE_ENV == "development") {
+if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 app.use(cors());
