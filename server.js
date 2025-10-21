@@ -1,20 +1,46 @@
 const express = require("express");
 const { buildSchema } = require("graphql");
 const { createHandler } = require("graphql-http/lib/use/express");
+const users = [
+  { id: "1", name: "Abdo" },
+  { id: "2", name: "Ahmed" },
+];
 
 const schema = buildSchema(`
-  type Query{
-  Hello :String
+  type User{
+  id:String,
+  name:String
   }
+  type Query{
+  getUsers :[User]
+  getUserById(id:String):User
+  }
+
+  type Mutation{
+  createUser(id:String,name:String):User
+  }
+
   `);
 
-const resolvers = {
+const userQueries = {
   Hello: () => "Hello from server GraphQL",
+  getUsers: () => users,
+  getUserById: (args) => users.find((user) => user.id === args.id),
 };
-
+const userMutations = {
+  createUser: ({ id, name }) => {
+    const newUser = { id, name };
+    users.push(newUser);
+    return newUser;
+  },
+};
+const resolvers = {
+  ...userQueries,
+  ...userMutations,
+};
 const app = express();
 
-app.use("/graphql", createHandler({schema, rootValue:resolvers}));
+app.use("/graphql", createHandler({ schema, rootValue: resolvers }));
 
 const port = 3000;
 app.listen(port, () => {
