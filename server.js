@@ -1,46 +1,84 @@
 const express = require("express");
+const cors = require("cors");
 const { buildSchema } = require("graphql");
 const { createHandler } = require("graphql-http/lib/use/express");
-const users = [
-  { id: "1", name: "Abdo" },
-  { id: "2", name: "Ahmed" },
-];
+const morgan = require("morgan");
+
+const dbConnection = require("./config/dbConnection");
+require("dotenv").config({ path: "./config.env" });
+
+dbConnection();
 
 const schema = buildSchema(`
-  type User{
-  id:String,
-  name:String
-  }
   type Query{
-  getUsers :[User]
-  getUserById(id:String):User
-  }
-
-  type Mutation{
-  createUser(id:String,name:String):User
-  }
-
-  `);
+  test:String
+  }`);
 
 const userQueries = {
-  Hello: () => "Hello from server GraphQL",
-  getUsers: () => users,
-  getUserById: (args) => users.find((user) => user.id === args.id),
+  test: () => "Success",
 };
-const userMutations = {
-  createUser: ({ id, name }) => {
-    const newUser = { id, name };
-    users.push(newUser);
-    return newUser;
-  },
-};
+
+const userMutations = {};
+
 const resolvers = {
   ...userQueries,
   ...userMutations,
 };
+
 const app = express();
 
-app.use("/graphql", createHandler({ schema, rootValue: resolvers }));
+if (process.env.NODE_ENV == "development") {
+  app.use(morgan("dev"));
+}
+app.use(cors());
+
+app.use(
+  "/graphql",
+  createHandler({ schema, rootValue: resolvers, graphiql: true })
+);
+
+app.get("/graphiql", (req, res) => {
+  res.setHeader("Content-Type", "text/html");
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>GraphiQL</title>
+        <link href="https://cdn.jsdelivr.net/npm/graphiql@1.4.7/graphiql.min.css" rel="stylesheet" />
+        <style>
+          body, html {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+          }
+          #graphiql {
+            height: 100vh;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="graphiql">Loading...</div>
+
+        <!-- ✅ React -->
+        <script src="https://cdn.jsdelivr.net/npm/react@17/umd/react.production.min.js"></script>
+        <!-- ✅ ReactDOM -->
+        <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.production.min.js"></script>
+        <!-- ✅ GraphiQL -->
+        <script src="https://cdn.jsdelivr.net/npm/graphiql@1.4.7/graphiql.min.js"></script>
+
+        <!-- ✅ Init GraphiQL -->
+        <script>
+          const fetcher = GraphiQL.createFetcher({ url: '/graphql' });
+          ReactDOM.render(
+            React.createElement(GraphiQL, { fetcher }),
+            document.getElementById('graphiql'),
+          );
+        </script>
+      </body>
+    </html>
+  `);
+});
 
 const port = 3000;
 app.listen(port, () => {
