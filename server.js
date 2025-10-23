@@ -1,91 +1,29 @@
 const express = require("express");
-const cors = require("cors");
-const { buildSchema } = require("graphql");
+
 const { createHandler } = require("graphql-http/lib/use/express");
 const morgan = require("morgan");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 
 const dbConnection = require("./config/dbConnection");
 require("dotenv").config({ path: "./config.env" });
-const User = require("./models/userModel");
 
-const signToken = (user) => {
-  return jwt.sign({ userId: user._id }, process.env.JWT_SECRET_KEY, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
-  });
-};
+const schema = require("./graphql/schemas/schema");
+const { userQueries, userMutations } = require("./graphql/resolvers/user");
+const { postQueries, postMutations } = require("./graphql/resolvers/post");
 
 dbConnection();
-
-const schema = buildSchema(`
-  type User{
-  name:String!,
-  email:String!,
-  token:String
-  }
-
-  input userInput{
-  name:String!,
-  email:String!,
-  password:String!
-  }
-
-  input userLoginInput{
-  email:String!,
-  password:String!
-  }
-
-  type Query{
-  test:String
-  getUsers:[User]
-  
-  }
-
-
-
-  type Mutation{
-  createUser(input:userInput):User
-  login(email:String!,password:String!):String
-  }
-
-  `);
-
-const userQueries = {
-  test: () => "Success",
-  getUsers: async () => {
-    const users = await User.find();
-    return users;
-  },
-};
-
-const userMutations = {
-  createUser: async ({ input }) => {
-    const { name, email, password } = input;
-    const newUser = await User.create({ name, email, password });
-    const token = await signToken(newUser);
-    console.log(token);
-    return {
-      name,
-      email,
-      token,
-    };
-  },
-  login: async ({ email, password }) => {
-    const user = await User.findOne({ email });
-
-    if (!user || !(await bcrypt.compare(password, user.password)))
-      throw new Error(`Invalid credentials`);
-
-    const token = signToken(user);
-
-    return token;
-  },
-};
+/**
+ * update post
+ * delete post
+ * get post
+ * comment => post
+ * when get post get comments(content only)
+ */
 
 const resolvers = {
   ...userQueries,
   ...userMutations,
+  ...postQueries,
+  ...postMutations,
 };
 
 const app = express();
@@ -93,7 +31,7 @@ const app = express();
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
-app.use(cors());
+// app.use(cors());
 
 app.use(
   "/graphql",
@@ -145,5 +83,5 @@ app.get("/graphiql", (req, res) => {
 
 const port = 3000;
 app.listen(port, () => {
-  console.log(`Server app listening on port ${port}`);
+  console.log(`Server app listening on: http://localhost:${port}/graphiql`);
 });
